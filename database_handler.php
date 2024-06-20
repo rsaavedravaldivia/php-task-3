@@ -12,6 +12,6 @@ $dbTripsora = new DatabaseTripsora();
 
 //$dbTripsora->insert_cities_into_db();
 
-$dbTripsora->get_tours_by_names('England', 'London', 68);
+//$dbTripsora->get_tours_by_names('England', 'London', 68);
 
 $dbTripsora->show_tour_events(445);

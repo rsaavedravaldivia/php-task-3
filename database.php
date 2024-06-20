@@ -14,50 +14,64 @@ class DatabaseTripsora
         $this->accessToken = $this->getAccessTokenFromURL("");
     }
 
+    function get_curl_response($endpoint, $params)
+    {
+
+        $url = $endpoint;
+        // Build query only if array is not 0
+        if ($params !== 0) {
+            $url = $endpoint . '?' . http_build_query($params);
+        }
+        // Initialize cURL session
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'Authorization: Bearer ' . $this->accessToken,
+            'Accept: application/json'
+        ));
+        // Execute cURL request
+        $response = curl_exec($ch);
+
+        // Check response
+        if ($response === false) {
+            echo "cURL error: " . curl_error($ch);
+            curl_close($ch);
+            return [];
+        } else {
+            // Decode the JSON response
+            $response_data = json_decode($response, true);
+            curl_close($ch);
+            return $response_data;
+        }
+    }
+
     function getAccessTokenFromURL($url)
     {
         $data = file_get_contents($url);
-        // Parsing the token from the response. Adjust according to the actual response structure.
         $str = substr($data, strpos($data, "accessToken") + 35, 344);
         return $str;
     }
 
-    function get_free_tour_countries($accessToken)
+    function get_free_tour_countries()
     {
         $endpoint = "https://www.freetour.com/partnersAPI/v.2.0/countries";
         $array = [];
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $endpoint);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt(
-            $ch,
-            CURLOPT_HTTPHEADER,
-            array(
-                'Authorization: Bearer ' . $accessToken,
-                'Accept: application/json'
-            )
-        );
+        $response_data = $this->get_curl_response($endpoint, 0);
 
-        $response = curl_exec($ch);
-        if ($response === false) {
-            echo "cURL Error: " . curl_error($ch);
-        } else {
-            $responseData = json_decode($response, true);
-            if (isset($responseData['data'])) {
-                foreach ($responseData['data'] as $country) {
-                    $array[] = [
-                        'id' => $country['id'],
-                        'name' => $country['title']['en']
-                    ];
-                }
-                return $array;
-            } else {
-                echo "No country data found in the response.";
+        if (isset($response_data['data'])) {
+            foreach ($response_data['data'] as $country) {
+                $array[] = [
+                    'id' => $country['id'],
+                    'name' => $country['title']['en']
+                ];
             }
+            return $array;
+        } else {
+            echo "No country data found in the response.";
+            return [];
         }
-        curl_close($ch);
-        return [];
     }
 
     function create_database()
@@ -79,32 +93,6 @@ class DatabaseTripsora
             $conn->close();
         }
     }
-
-
-    function create_country_table()
-    {
-        $conn = new mysqli($this->servername, $this->username, $this->password, $this->dbName);
-        if ($conn->connect_error) {
-            die("Connection failed: " . $conn->connect_error);
-        }
-
-        try {
-            $sql = "CREATE TABLE countries (
-                        id INT(6) UNIQUE NOT NULL,
-                        country_name VARCHAR(50) UNIQUE NOT NULL
-                    )";
-            if ($conn->query($sql) === TRUE) {
-                echo "Table created successfully";
-            } else {
-                echo "Error creating table: " . $conn->error;
-            }
-        } catch (Exception $e) {
-            echo "Error: " . $e->getMessage();
-        } finally {
-            $conn->close();
-        }
-    }
-
     function create_cities_table()
     {
         $conn = new mysqli($this->servername, $this->username, $this->password, $this->dbName);
@@ -132,34 +120,6 @@ class DatabaseTripsora
     }
 
 
-    function insert_countries_into_db()
-    {
-        $conn = new mysqli($this->servername, $this->username, $this->password, $this->dbName);
-        if ($conn->connect_error) {
-            die("Connection error: " . $conn->connect_error);
-        }
-        echo "Connected successfully";
-
-        $countriesArray = $this->get_free_tour_countries($this->accessToken);
-        $stmt = $conn->prepare("INSERT INTO countries (id, country_name) VALUES (?, ?)");
-        $stmt->bind_param("is", $id, $name);
-
-        try {
-            foreach ($countriesArray as $country) {
-                $id = $country['id'];
-                $name = $country['name'];
-                $stmt->execute();
-                echo 'ID and Name added successfully';
-            }
-        } catch (Exception $e) {
-            echo 'Error: ' . $e->getMessage();
-        } finally {
-            $stmt->close();
-            $conn->close();
-        }
-    }
-
-
     function get_cities_by_country_id($countryId, $haveActive = 0, $haveFree = 0)
     {
         $endpoint = "https://www.freetour.com/partnersAPI/v.2.0/cities/$countryId";
@@ -167,33 +127,14 @@ class DatabaseTripsora
             'haveActive' => $haveActive,
             'haveFree' => $haveFree
         );
-        $url = $endpoint . '?' . http_build_query($params);
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt(
-            $ch,
-            CURLOPT_HTTPHEADER,
-            array(
-                'Authorization: Bearer ' . $this->accessToken,
-                'Accept: application/json'
-            )
-        );
-
-        $response = curl_exec($ch);
-        if ($response === false) {
-            echo "cURL Error: " . curl_error($ch);
+        $response_data = $this->get_curl_response($endpoint, $params);
+        if (isset($response_data['data'])) {
+            return $response_data['data'];
         } else {
-            $responseData = json_decode($response, true);
-            if (isset($responseData['data'])) {
-                return $responseData['data'];
-            } else {
-                echo "No city data found in the response.";
-            }
+            echo "No city data found in the response.";
+            return [];
         }
-        curl_close($ch);
-        return [];
     }
 
     function insert_cities_into_db()
@@ -204,7 +145,7 @@ class DatabaseTripsora
         }
         echo "Connected successfully";
 
-        $countriesArray = $this->get_free_tour_countries($this->accessToken);
+        $countriesArray = $this->get_free_tour_countries();
 
         $stmt = $conn->prepare("INSERT INTO cities (country_id, city_id, country_name, city_name) VALUES (?, ?, ?, ?)");
         $stmt->bind_param("iiss", $country_id, $city_id, $country_name, $city_name);
@@ -305,49 +246,29 @@ class DatabaseTripsora
             'onlyPaid' => 0,
             'days' => $ndays
         );
-        $url = $endpoint . '?' . http_build_query($params);
 
-        // Initialize cURL session
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Authorization: Bearer ' . $this->accessToken,
-            'Accept: application/json'
-        ));
+        $response_data = $this->get_curl_response($endpoint, $params);
 
-        // Execute cURL request
-        $response = curl_exec($ch);
+        // Check if the response contains tour data
+        if (isset($response_data['data']['tours'])) {
+            $tours = $response_data['data']['tours'];
+            $result = [];
 
-        // Check for cURL errors
-        if ($response === false) {
-            echo "cURL error: " . curl_error($ch);
-            curl_close($ch);
-            return [];
-        } else {
-            // Decode the JSON response
-            $response_data = json_decode($response, true);
-            curl_close($ch);
-
-            // Check if the response contains tour data
-            if (isset($response_data['data']['tours'])) {
-                $tours = $response_data['data']['tours'];
-                $result = [];
-
-                // Extract relevant data from each tour
-                foreach ($tours as $tour) {
-                    $tour_data = [
-                        'id' => $tour['id'],
-                        'title' => $tour['title']['en'],
-                        'description' => $tour['description']['en'],
-                    ];
-                    $result[] = $tour_data;
-                }
-                return $result;
-            } else {
-                echo 'No tour found.';
-                return [];
+            // Extract relevant data from each tour
+            foreach ($tours as $tour) {
+                $tour_data = [
+                    'id' => $tour['id'],
+                    'title' => $tour['title']['en'],
+                    'description' => $tour['description']['en'],
+                ];
+                $result[] = $tour_data;
+                //print_r($tour_data);
             }
+
+            return $result;
+        } else {
+            echo 'No tour found.';
+            return [];
         }
     }
 
@@ -357,26 +278,7 @@ class DatabaseTripsora
 
         $endpoint = "https://www.freetour.com/partnersAPI/v.2.0/tours/$tour_id/events";
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $endpoint);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Authorization: Bearer ' . $this->accessToken,
-            'Accept: application/json'
-        ));
-
-        $response = curl_exec($ch);
-
-
-        if ($response === false) {
-            echo 'cURL Error: ' . curl_error($ch);
-            curl_close($ch);
-            return [];
-        } else {
-
-            $response_data = json_decode($response, true);
-            curl_close($ch);
-        }
+        $response_data = $this->get_curl_response($endpoint, 0);
 
         if (isset($response_data['data'])) {
             $events = $response_data['data'];
@@ -393,11 +295,11 @@ class DatabaseTripsora
                 ];
 
                 $result[] = $event_data;
-                print_r($result);
-                echo '<br>';
-                echo '<br>';
             }
 
+            print_r($result);
+            echo '<br>';
+            echo '<br>';
             return $result;
         } else {
             echo 'No events found.';
