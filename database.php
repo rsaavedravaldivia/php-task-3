@@ -215,13 +215,6 @@ class DatabaseTripsora
             echo 'No city or country found with that name.';
             return null;
         }
-        // get tour list from ids
-
-        // get a list of tours in that city
-
-        // show them
-
-
     }
 
     function get_tours_by_names($country_name, $city_name, $ndays)
@@ -295,11 +288,12 @@ class DatabaseTripsora
                 ];
 
                 $result[] = $event_data;
+                print_r($event_data);
+                echo '<br>';
+                echo '<br>';
             }
 
-            print_r($result);
-            echo '<br>';
-            echo '<br>';
+
             return $result;
         } else {
             echo 'No events found.';
