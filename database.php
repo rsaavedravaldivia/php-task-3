@@ -49,8 +49,14 @@ class DatabaseTripsora
     function getAccessTokenFromURL($url)
     {
         $data = file_get_contents($url);
-        $str = substr($data, strpos($data, "accessToken") + 35, 344);
-        return $str;
+        if ($data === false) {
+            die('Error fetching data.');
+        }
+        $response = json_decode($data, true);
+        if ($response === null) {
+            die('Error decoding json.');
+        }
+        return $response['token'];
     }
 
     function get_free_tour_countries()
@@ -216,14 +222,14 @@ class DatabaseTripsora
             return null;
         }
     }
-
-    function get_tours_by_names($country_name, $city_name, $ndays)
+    function get_tours_by_rating($country_name, $city_name, $ndays)
     {
         // Get the IDs of the country and city by their names
         $ids = $this->get_country_and_city_id_by_names($country_name, $city_name);
 
         // If IDs are not found, return an empty array
         if (!$ids) {
+            echo 'Records not found.';
             return [];
         }
 
@@ -231,20 +237,64 @@ class DatabaseTripsora
         $city_id = $ids['city_id'];
 
         // Define the endpoint URL and parameters
+        $page = 1;
+        $result = array('tours' => []);
+
         $endpoint = "https://www.freetour.com/partnersAPI/v.2.0/tours";
-        $params = array(
-            'cityId' => $city_id,
-            'countryId' => $country_id,
-            'onlyFree' => 0,
-            'onlyPaid' => 0,
-            'days' => $ndays
-        );
 
-        $response_data = $this->get_curl_response($endpoint, $params);
 
+
+        while (true) {
+            $params = array(
+                'page' => $page,
+                'bid' => 0,
+                'cityId' => $city_id,
+                'countryId' => $country_id,
+                'onlyFree' => 0,
+                'onlyPaid' => 0,
+                'days' => $ndays
+            );
+
+            $response =  $this->get_curl_response($endpoint, $params);
+
+            foreach ($response['data']['tours'] as $tour) {
+                if ($tour['rating'] >= 3.5) {
+
+                    $temp_array = array(
+                        'id' => $tour['id'],
+                        'title' => $tour['title']['en'],
+                        'description' => $tour['description']['en'],
+                        'price' => $tour['price']['value'],
+                        'currency' => $tour['price']['currency'],
+                        'length' => $tour['length'],
+                        'rating' => $tour['rating']
+                    );
+
+                    array_push($result['tours'], $temp_array);
+                    break;
+                }
+            }
+            $page += 1;
+            $response =  $this->get_curl_response($endpoint, $params);
+            if (empty($response['data']['tours'])) {
+                break;
+            }
+        }
+
+        print_r($result);
+        return $result;
+    }
+
+
+
+
+    function filter_tours_by_rating($tours_array)
+    {
+
+        print_r(' curentpage ' . $tours_array['data']['currentPage']);
         // Check if the response contains tour data
-        if (isset($response_data['data']['tours'])) {
-            $tours = $response_data['data']['tours'];
+        if (isset($tours_array['data']['tours'])) {
+            $tours = $tours_array['data']['tours'];
             $result = [];
 
             // Extract relevant data from each tour
@@ -253,11 +303,15 @@ class DatabaseTripsora
                     'id' => $tour['id'],
                     'title' => $tour['title']['en'],
                     'description' => $tour['description']['en'],
+
                 ];
                 $result[] = $tour_data;
-                //print_r($tour_data);
+                print_r($tour_data);
+                echo '<br>';
+                echo '<br>';
             }
 
+            print_r($result);
             return $result;
         } else {
             echo 'No tour found.';
@@ -265,10 +319,9 @@ class DatabaseTripsora
         }
     }
 
+
     function show_tour_events($tour_id)
     {
-
-
         $endpoint = "https://www.freetour.com/partnersAPI/v.2.0/tours/$tour_id/events";
 
         $response_data = $this->get_curl_response($endpoint, 0);
@@ -276,8 +329,6 @@ class DatabaseTripsora
         if (isset($response_data['data'])) {
             $events = $response_data['data'];
             $result = [];
-
-
             foreach ($events as $event) {
 
                 $event_data = [

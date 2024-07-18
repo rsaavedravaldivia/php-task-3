@@ -1,0 +1,20 @@
+Let's start with our first integration task.
+We would like to offer free and paid walking tours on the trip planner platform. The walking tours are offered by FreeTours.com.
+
+Their API is accessible here: https://www.freetour.com/documentation/partners-api/v20
+
+The first part is the LOGIN which returns an access token that you have to use e.g. to book an event.
+
+I've made the access token available from this url: https://www.trip-planner.ai/rp/getFTapi.php
+which outputs:
+
+array(2) { ["data"]=> array(2) { ["token"]=> array(3) { ["accessToken"]=> string(343) "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL3d3dy5mcmVldG91ci5jb20vcGFydG5lcnNBUEkvdi4yLjAvbG9naW4iLCJpYXQiOjE3MTcyNTcyNDMsImV4cCI6MTcxNzI2MDg0MywibmJmIjoxNzE3MjU3MjQzLCJqdGkiOiJKclVHMWIzNE96eDdBdXUyIiwic3ViIjo2NTM0NzEsInBydiI6IjIzYmQ1Yzg5NDlmNjAwYWRiMzllNzAxYzQwMDg3MmRiN2E1OTc2ZjcifQ.TiSEyqKzuavBmqBpE7qdSEl573239cKP58aco1aymjw" ["tokenType"]=> string(6) "Bearer" ["expiresAt"]=> string(19) "2024-06-01 16:54:03" } ["user"]=> array(1) { ["email"]=> string(25) "partnerships@tripsora.com" } } ["status"]=> int(200) }
+the access token is here e.g.:
+
+eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL3d3dy5mcmVldG91ci5jb20vcGFydG5lcnNBUEkvdi4yLjAvbG9naW4iLCJpYXQiOjE3MTcyNTcyNDMsImV4cCI6MTcxNzI2MDg0MywibmJmIjoxNzE3MjU3MjQzLCJqdGkiOiJKclVHMWIzNE96eDdBdXUyIiwic3ViIjo2NTM0NzEsInBydiI6IjIzYmQ1Yzg5NDlmNjAwYWRiMzllNzAxYzQwMDg3MmRiN2E1OTc2ZjcifQ.TiSEyqKzuavBmqBpE7qdSEl573239cKP58aco1aymjw
+
+On tripsora.com we want to display up to 20 bookable events (each row has 4 bookable events listed along with title and short description). The consumer clicks on the event to book a walking tour. The order process has to be intuitive and perhaps in form of shopping cart process. The freetour API should be sufficient to accomdate the whole process.
+
+The following parameters are available from tripsora platform:
+start date. end date. email address. destination (city, country)
+you have to capture the group size when the order takes place.
