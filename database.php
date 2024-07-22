@@ -238,6 +238,8 @@ class DatabaseTripsora
 
         // Define the endpoint URL and parameters
         $page = 1;
+        $limit = 10;
+        $count = 1;
         $result = array('tours' => []);
 
         $endpoint = "https://www.freetour.com/partnersAPI/v.2.0/tours";
@@ -271,7 +273,12 @@ class DatabaseTripsora
                     );
 
                     array_push($result['tours'], $temp_array);
-                    break;
+                    $count += 1;
+
+                    if ($count > $limit) {
+                        //print_r($result);
+                        return $result;
+                    }
                 }
             }
             $page += 1;
@@ -280,75 +287,47 @@ class DatabaseTripsora
                 break;
             }
         }
-
-        print_r($result);
+        //print_r($result);
         return $result;
     }
 
 
-
-
-    function filter_tours_by_rating($tours_array)
+    function filter_tours_by_date_range($tours_array, $startDate, $endDate)
     {
 
-        print_r(' curentpage ' . $tours_array['data']['currentPage']);
-        // Check if the response contains tour data
-        if (isset($tours_array['data']['tours'])) {
-            $tours = $tours_array['data']['tours'];
-            $result = [];
+        $limit = 7;
 
-            // Extract relevant data from each tour
-            foreach ($tours as $tour) {
-                $tour_data = [
-                    'id' => $tour['id'],
-                    'title' => $tour['title']['en'],
-                    'description' => $tour['description']['en'],
 
-                ];
-                $result[] = $tour_data;
-                print_r($tour_data);
-                echo '<br>';
-                echo '<br>';
+        $startDate = $startDate->format('Y-m-d');
+        $endDate = $endDate->format('Y-m-d');
+
+        $result = array('tour' => []);
+
+        foreach ($tours_array['tours'] as $tour) {
+
+            $tour_id = $tour['id'];
+            $endpoint = "https://www.freetour.com/partnersAPI/v.2.0/tours/$tour_id/events";
+
+            $response = $this->get_curl_response($endpoint, 0);
+            if (!isset($response)) {
+                print_r('No response found in tour event.');
+                exit();
             }
 
-            print_r($result);
-            return $result;
-        } else {
-            echo 'No tour found.';
-            return [];
-        }
-    }
+            $count = 0;
+            $temp_arr = array();
+            foreach ($response['data'] as $event) {
+                $event_date = $event['date'];
+                $date = new DateTime($event_date);
+                $formated = $date->format('Y-m-d');
 
-
-    function show_tour_events($tour_id)
-    {
-        $endpoint = "https://www.freetour.com/partnersAPI/v.2.0/tours/$tour_id/events";
-
-        $response_data = $this->get_curl_response($endpoint, 0);
-
-        if (isset($response_data['data'])) {
-            $events = $response_data['data'];
-            $result = [];
-            foreach ($events as $event) {
-
-                $event_data = [
-                    'event_id' => $event['id'],
-                    'tour_id' => $event['tourId'],
-                    'language' => $event['language'],
-                    'date' => $event['date']
-                ];
-
-                $result[] = $event_data;
-                print_r($event_data);
-                echo '<br>';
-                echo '<br>';
+                if ($formated >= $startDate && $formated <= $endDate && $count < $limit) {
+                    array_push($temp_arr, $event);
+                    $count += 1;
+                }
             }
-
-
-            return $result;
-        } else {
-            echo 'No events found.';
-            return [];
+            array_push($result['tour'], $temp_arr);
         }
+        return $result;
     }
 }
